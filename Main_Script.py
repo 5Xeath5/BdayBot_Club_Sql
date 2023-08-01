@@ -14,8 +14,8 @@ bot = lightbulb.BotApp(token=os.environ["BOT_TOKEN"], intents=hikari.Intents.ALL
 @lightbulb.implements(lightbulb.SlashCommand)
 async def setup(ctx):
     input_guild = ctx.guild_id
-    input_channel = int(ctx.options.channel)
-    input_mod = int(ctx.options.mod)
+    input_channel = ctx.options.channel
+    input_mod = ctx.options.mod
     engine = sa.create_engine(os.environ["DATABASE_URL"])
 
     with engine.connect() as conn:
@@ -31,7 +31,7 @@ async def setup(ctx):
         if await setupCheck(ctx, input_channel, input_mod):     
             statement2 = """INSERT INTO Guilds (guildId, channelId, modId)
                             VALUES (:guild_id, :channel_id, :mod_id);"""
-            para2 = ({"guild_id":input_guild, "channel_id":input_channel, "mod_id":input_mod})
+            para2 = ({"guild_id":input_guild, "channel_id":int(input_channel), "mod_id":int(input_mod)})
             conn.execute(sa.text(statement2), para2)
             print('pass')
         conn.commit()
@@ -41,6 +41,18 @@ async def setup(ctx):
 async def setupCheck(ctx, channel, mod):
     guildID = ctx.guild_id
 
+    try:
+        int(channel)
+    except ValueError as e:
+        print("channel must be a number")
+        return False
+    
+    try:
+        int(mod)
+    except ValueError as e:
+        print("mod id must be a number")
+        return False
+        
     #makes sure the channel is in the guild
     channels_in_guild = bot.cache.get_guild_channels_view_for_guild(guildID).keys()
     if not int(channel) in channels_in_guild:
