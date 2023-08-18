@@ -89,140 +89,7 @@ async def setupCheck(ctx, channel, mod):
     #setup finishing touches (embed, message, respond, etc.....)
     return True
 
-#creates users table, dates table and inputs necessary info
-@bot.command
-@lightbulb.option("day", "Birth Day", type=int, min_value=1, max_value=31)
-@lightbulb.option("month", "Birth Month", type=int, min_value=1, max_value=12)
-@lightbulb.command("newdate", "Add Birthdate")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def newdate(ctx):
-    guildID = ctx.guild_id
-    userID = ctx.author.id
-    date = await dateFormat(ctx.options.day, ctx.options.month)
-    print(date)
-    engine = sa.create_engine(os.environ["DATABASE_URL"])
 
-    with engine.connect() as conn:
-        statement1 = (
-            """
-            CREATE TABLE IF NOT EXISTS Users(
-                userID INT PRIMARY KEY NOT NULL,
-                dates DATE NOT NULL,
-                guildID INT[] NOT NULL DEFAULT array[]::INT[], 
-                INDEX (userID)
-            );   
-            """
-        )
-        conn.execute(sa.text(statement1))
-        conn.commit()
-
-        statement2 = (
-            f"""
-            INSERT INTO Users(userID, dates)
-            VALUES ({userID}, '{date}')
-            ON CONFLICT (userID)
-            DO NOTHING
-            """
-            )
-        conn.execute(sa.text(statement2))
-        conn.commit()
-
-        statement2_1 = (
-            f"""
-            SELECT guildID
-            FROM Users
-            WHERE userID = {userID}
-            """
-        )
-
-        results0 = conn.execute(sa.text(statement2_1))
-        conn.commit()
-
-        arr0 = results0.first()[0]
-        if (guildID not in arr0):
-            arr0.append(str(guildID))
-
-            statement2_2 = (
-                f"""
-                UPDATE Users
-                SET guildID = ARRAY {arr0}
-                WHERE userID = {userID}
-                """
-            )
-
-            conn.execute(sa.text(statement2_2))
-            conn.commit()
-
-        statement3 = (
-            f"""
-            SELECT userID
-            FROM Guilds
-            WHERE guildID = {guildID}
-            """
-        )
-        results = conn.execute(sa.text(statement3))
-        conn.commit()
-        
-        arr = results.first()[0]
-        if (userID not in arr):
-            arr.append(str(userID))
-
-            statement4 = (
-                f"""
-                UPDATE Guilds
-                SET userID = ARRAY {arr}
-                WHERE guildID = {guildID}
-                """
-            )
-            conn.execute(sa.text(statement4))
-            conn.commit()
-
-        statement5 = (
-            """
-            CREATE TABLE IF NOT EXISTS Dates(
-                dates DATE PRIMARY KEY NOT NULL,
-                users INT[] NOT NULL DEFAULT array[]::INT[]
-            );
-            """
-        )
-        conn.execute(sa.text(statement5))
-        conn.commit()
-
-        statement6 = (
-           f"""
-            INSERT INTO Dates(dates)
-            VALUES('{date}')
-            ON CONFLICT (dates)
-            DO NOTHING;
-            """
-        )
-        conn.execute(sa.text(statement6))
-        conn.commit()
-
-        statement7 = (
-            f"""
-            SELECT users
-            FROM Dates
-            WHERE dates = '{date}'
-            """
-        )
-
-        results = conn.execute(sa.text(statement7))
-        arr2 = results.first()[0]
-        if (userID not in arr2):
-            arr2.append(str(userID))
-
-            statement8 = (
-                f"""
-                UPDATE Dates
-                SET users = ARRAY {arr2}
-                WHERE dates = '{date}'
-                """
-            )
-            conn.execute(sa.text(statement8))
-            conn.commit()
-        print('pass')
-        conn.close()
 
 #turns given inputs into string '2000-dd-mm'""
 #2000 is used as default year, needed cause sql DATE formate requires year
@@ -240,5 +107,245 @@ async def dateFormat(day, month):
     
     return f'2000-{monthString}-{dayString}'
 
-#add newDateCheck
+#creates users table, dates table and inputs necessary info
+@bot.command
+@lightbulb.option("day", "Birth Day", type=int, min_value=1, max_value=31)
+@lightbulb.option("month", "Birth Month", type=int, min_value=1, max_value=12)
+@lightbulb.command("newdate", "Add Birthdate")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def newdate(ctx):
+    guildID = ctx.guild_id
+    userID = ctx.author.id
+    date = await dateFormat(ctx.options.day, ctx.options.month)
+    engine = sa.create_engine(os.environ["DATABASE_URL"])
+
+    if await generalCheck(guildID):
+        with engine.connect() as conn:
+            statement1 = (
+                """
+                CREATE TABLE IF NOT EXISTS Users(
+                    userID INT PRIMARY KEY NOT NULL,
+                    dates DATE NOT NULL,
+                    guildID INT[] NOT NULL DEFAULT array[]::INT[], 
+                    INDEX (userID)
+                );   
+                """
+            )
+            conn.execute(sa.text(statement1))
+            conn.commit()
+
+            statement2 = (
+                f"""
+                INSERT INTO Users(userID, dates)
+                VALUES ({userID}, '{date}')
+                ON CONFLICT (userID)
+                DO NOTHING
+                """
+                )
+            conn.execute(sa.text(statement2))
+            conn.commit()
+
+            statement2_1 = (
+                f"""
+                SELECT guildID
+                FROM Users
+                WHERE userID = {userID}
+                """
+            )
+
+            results0 = conn.execute(sa.text(statement2_1))
+            conn.commit()
+
+            arr0 = results0.first()[0]
+            if (guildID not in arr0):
+                arr0.append(str(guildID))
+
+                statement2_2 = (
+                    f"""
+                    UPDATE Users
+                    SET guildID = ARRAY {arr0}
+                    WHERE userID = {userID}
+                    """
+                )
+
+                conn.execute(sa.text(statement2_2))
+                conn.commit()
+
+            statement3 = (
+                f"""
+                SELECT userID
+                FROM Guilds
+                WHERE guildID = {guildID}
+                """
+            )
+            results = conn.execute(sa.text(statement3))
+            conn.commit()
+            
+            arr = results.first()[0]
+            if (userID not in arr):
+                arr.append(str(userID))
+
+                statement4 = (
+                    f"""
+                    UPDATE Guilds
+                    SET userID = ARRAY {arr}
+                    WHERE guildID = {guildID}
+                    """
+                )
+                conn.execute(sa.text(statement4))
+                conn.commit()
+
+            statement5 = (
+                """
+                CREATE TABLE IF NOT EXISTS Dates(
+                    dates DATE PRIMARY KEY NOT NULL,
+                    users INT[] NOT NULL DEFAULT array[]::INT[]
+                );
+                """
+            )
+            conn.execute(sa.text(statement5))
+            conn.commit()
+
+            statement6 = (
+            f"""
+                INSERT INTO Dates(dates)
+                VALUES('{date}')
+                ON CONFLICT (dates)
+                DO NOTHING;
+                """
+            )
+            conn.execute(sa.text(statement6))
+            conn.commit()
+
+            statement7 = (
+                f"""
+                SELECT users
+                FROM Dates
+                WHERE dates = '{date}'
+                """
+            )
+
+            results = conn.execute(sa.text(statement7))
+            arr2 = results.first()[0]
+            if (userID not in arr2):
+                arr2.append(str(userID))
+
+                statement8 = (
+                    f"""
+                    UPDATE Dates
+                    SET users = ARRAY {arr2}
+                    WHERE dates = '{date}'
+                    """
+                )
+                conn.execute(sa.text(statement8))
+                conn.commit()
+            print('pass')
+            conn.close()
+
+#checks if guild is regesterd
+async def generalCheck(guildID):
+    engine = sa.create_engine(os.environ["DATABASE_URL"])
+
+    with engine.connect() as conn:
+        statement1 = (
+            f"""
+            SELECT guildID
+            FROM Guilds
+            WHERE guildID = {guildID}
+            """
+        )
+        results = conn.execute(sa.text(statement1))
+        conn.commit()
+        conn.close()
+
+        if results.first() == None:
+            print('fail')
+            return False
+        else:
+            return True
+
+#removes the user from all table
+@bot.command
+@lightbulb.command('remove', 'remove your birthdate from guild')
+@lightbulb.implements(lightbulb.SlashCommand)
+async def remove(ctx):
+    guildID = ctx.guild_id
+    userID = ctx.author.id
+    engine = sa.create_engine(os.environ["DATABASE_URL"])
+
+    if await generalCheck(guildID):
+        with engine.connect() as conn:
+            statement1 = (
+                f"""
+                SELECT guildID, dates
+                FROM Users
+                WHERE userID = {userID}
+                """
+            )
+            results = conn.execute(sa.text(statement1))
+            conn.commit()
+            first = results.first()
+            guildarr = first[0]
+            date = first[1]
+
+            for guild in guildarr:
+                statement2 = (
+                    f"""
+                    SELECT userId
+                    FROM Guilds
+                    WHERE guildId = {guild}
+                    """
+                )
+                userArr = conn.execute(sa.text(statement2))
+                conn.commit()
+                userArr = userArr.first()[0]
+                userArr.remove(userID)
+
+                statement2_1 = (
+                    f"""
+                    UPDATE Guilds
+                    SET userId = ARRAY {userArr}
+                    WHERE guildId = {guild}
+                    """
+                )
+                conn.execute(sa.text(statement2_1))
+                conn.commit()
+            
+            statement3 = (
+                f"""
+                SELECT users
+                FROM Dates
+                WHERE dates = '{date}'
+                """
+            )
+            userArr = conn.execute(sa.text(statement3))
+            conn.commit()
+
+            userArr = userArr.first()[0]
+            userArr.remove(userID)
+
+            statement3_1 = (
+                f"""
+                UPDATE Dates
+                SET users = ARRAY {userArr}
+                WHERE dates = '{date}'
+                """
+            )
+
+            conn.execute(sa.text(statement3_1))
+            conn.commit()
+
+            statement4 = (
+                f"""
+                DELETE FROM Users
+                WHERE userId = {userID}
+                """
+            )
+            conn.execute(sa.text(statement4))
+            conn.commit()
+            conn.close()
+            print('pass')
+
+#next task: prevent duplicates
+                
 bot.run()

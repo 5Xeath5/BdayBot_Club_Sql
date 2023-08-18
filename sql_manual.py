@@ -147,4 +147,4 @@ def AllShow():
     DatesShow()
 
 if __name__ == "__main__":
-    AllDrop()
+    AllShow()
