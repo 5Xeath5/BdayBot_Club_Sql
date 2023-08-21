@@ -34,7 +34,7 @@ async def setup(ctx):
                             VALUES (:guild_id, :channel_id, :mod_id);"""
             para2 = ({"guild_id":input_guild, "channel_id":int(input_channel), "mod_id":int(input_mod)})
             conn.execute(sa.text(statement2), para2)
-            print('pass')
+            print('pass setup')
         conn.commit()
         conn.close()
 
@@ -199,7 +199,8 @@ async def newdate(ctx):
                 """
                 CREATE TABLE IF NOT EXISTS Dates(
                     dates DATE PRIMARY KEY NOT NULL,
-                    users INT[] NOT NULL DEFAULT array[]::INT[]
+                    users INT[] NOT NULL DEFAULT array[]::INT[],
+                    INDEX (dates)
                 );
                 """
             )
@@ -239,7 +240,7 @@ async def newdate(ctx):
                 )
                 conn.execute(sa.text(statement8))
                 conn.commit()
-            print('pass')
+            print('pass newdate')
             conn.close()
 
 #checks if guild is regesterd
@@ -259,16 +260,16 @@ async def generalCheck(guildID):
         conn.close()
 
         if results.first() == None:
-            print('fail')
+            print('fail generalCheck')
             return False
         else:
             return True
 
 #removes the user from all table
 @bot.command
-@lightbulb.command('remove', 'remove your birthdate from guild')
+@lightbulb.command('allremove', 'remove your birthdate from all servers')
 @lightbulb.implements(lightbulb.SlashCommand)
-async def remove(ctx):
+async def allremove(ctx):
     guildID = ctx.guild_id
     userID = ctx.author.id
     engine = sa.create_engine(os.environ["DATABASE_URL"])
@@ -344,8 +345,251 @@ async def remove(ctx):
             conn.execute(sa.text(statement4))
             conn.commit()
             conn.close()
+            print('pass allremove')
+
+@bot.command
+@lightbulb.command('sremove', 'remove your birthdate from this server')
+@lightbulb.implements(lightbulb.SlashCommand)
+async def sremove(ctx):
+    guildID = ctx.guild_id
+    userID = ctx.author.id
+    engine = sa.create_engine(os.environ["DATABASE_URL"])
+
+    if await generalCheck(guildID):
+        with engine.connect() as conn:
+            statement1 = (
+                f"""
+                SELECT guildID, dates
+                FROM Users
+                WHERE userID = {userID}
+                """
+            )
+            results = conn.execute(sa.text(statement1))
+            conn.commit()
+            first = results.first()
+            guildarr = first[0]
+            date = first[1]
+
+            
+            statement2 = (
+                f"""
+                SELECT userId
+                FROM Guilds
+                WHERE guildId = {guildID}
+                """
+            )
+            userArr = conn.execute(sa.text(statement2))
+            conn.commit()
+            userArr = userArr.first()[0]
+            userArr.remove(userID)
+
+            statement2_1 = (
+                f"""
+                UPDATE Guilds
+                SET userId = ARRAY {userArr}
+                WHERE guildId = {guildID}
+                """
+            )
+            conn.execute(sa.text(statement2_1))
+            conn.commit()
+            
+            if len(guildarr) == 1:
+                statement3 = (
+                    f"""
+                    SELECT users
+                    FROM Dates
+                    WHERE dates = '{date}'
+                    """
+                )
+                userArr = conn.execute(sa.text(statement3))
+                conn.commit()
+
+                userArr = userArr.first()[0]
+                userArr.remove(userID)
+
+                statement3_1 = (
+                    f"""
+                    UPDATE Dates
+                    SET users = ARRAY {userArr}
+                    WHERE dates = '{date}'
+                    """
+                )
+
+                conn.execute(sa.text(statement3_1))
+                conn.commit()
+
+                statement4 = (
+                    f"""
+                    DELETE FROM Users
+                    WHERE userId = {userID}
+                    """
+                )
+                conn.execute(sa.text(statement4))
+                conn.commit()
+            else:
+                statement5 = (
+                    f"""
+                    SELECT guildID
+                    FROM Users
+                    WHERE userId = {userID}
+                    """
+                )
+                arr1 = conn.execute(sa.text(statement5))
+                conn.commit()
+                arr1 = arr1.first()[0]
+                arr1.remove(guildID)
+
+                statement5_1 = (
+                    f"""
+                    UPDATE Users
+                    SET guildID = ARRAY {arr1}
+                    WHERE userID = {userID}
+                    """
+                )
+
+                conn.execute(sa.text(statement5_1))
+                conn.commit()
+            conn.close()
+            print('pass sremove')
+
+@bot.command
+@lightbulb.option('userid', "user's ID to remove")
+@lightbulb.command('mremove', "specifically remove a user's birthdate from server")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def mremove(ctx):
+    guildID = ctx.guild_id
+    removeID = int(ctx.options.userid)
+    roleArr = ctx.member.role_ids
+    engine = sa.create_engine(os.environ["DATABASE_URL"])
+
+    if await ModCheck(guildID, roleArr) and await generalCheck(guildID):
+            with engine.connect() as conn:
+                statement1 = (
+                    f"""
+                    SELECT guildID, dates
+                    FROM Users
+                    WHERE userID = {removeID}
+                    """
+                )
+                results = conn.execute(sa.text(statement1))
+                conn.commit()
+                first = results.first()
+                guildarr = first[0]
+                date = first[1]
+
+                
+                statement2 = (
+                    f"""
+                    SELECT userId
+                    FROM Guilds
+                    WHERE guildId = {guildID}
+                    """
+                )
+                userArr = conn.execute(sa.text(statement2))
+                conn.commit()
+                userArr = userArr.first()[0]
+                userArr.remove(removeID)
+
+                statement2_1 = (
+                    f"""
+                    UPDATE Guilds
+                    SET userId = ARRAY {userArr}
+                    WHERE guildId = {guildID}
+                    """
+                )
+                conn.execute(sa.text(statement2_1))
+                conn.commit()
+                
+                if len(guildarr) == 1:
+                    statement3 = (
+                        f"""
+                        SELECT users
+                        FROM Dates
+                        WHERE dates = '{date}'
+                        """
+                    )
+                    userArr = conn.execute(sa.text(statement3))
+                    conn.commit()
+
+                    userArr = userArr.first()[0]
+                    userArr.remove(removeID)
+
+                    statement3_1 = (
+                        f"""
+                        UPDATE Dates
+                        SET users = ARRAY {userArr}
+                        WHERE dates = '{date}'
+                        """
+                    )
+
+                    conn.execute(sa.text(statement3_1))
+                    conn.commit()
+
+                    statement4 = (
+                        f"""
+                        DELETE FROM Users
+                        WHERE userId = {removeID}
+                        """
+                    )
+                    conn.execute(sa.text(statement4))
+                    conn.commit()
+                else:
+                    statement5 = (
+                        f"""
+                        SELECT guildID
+                        FROM Users
+                        WHERE userId = {removeID}
+                        """
+                    )
+                    arr1 = conn.execute(sa.text(statement5))
+                    conn.commit()
+                    arr1 = arr1.first()[0]
+                    arr1.remove(guildID)
+
+                    statement5_1 = (
+                        f"""
+                        UPDATE Users
+                        SET guildID = ARRAY {arr1}
+                        WHERE userID = {removeID}
+                        """
+                    )
+
+                    conn.execute(sa.text(statement5_1))
+                    conn.commit()
+            conn.close()
+            print('pass mremove')
+
+
+
+
+async def ModCheck(guildID, modID):
+    engine = sa.create_engine(os.environ["DATABASE_URL"])
+
+    with engine.connect() as conn:
+        statement1 = (
+            f"""
+            SELECT modId
+            FROM Guilds
+            WHERE guildId = {guildID}
+            """
+        )  
+        results = conn.execute(sa.text(statement1))
+        conn.commit()
+
+        guildmod = results.first()[0]
+
+        if guildmod in modID:
             print('pass')
+            return True
+        
+        print('fail modCheck')
+        return False
+    
+
+
+async def listall():
+    pass
 
 #next task: prevent duplicates
-                
+# general checks for user (in remove commands)
 bot.run()
