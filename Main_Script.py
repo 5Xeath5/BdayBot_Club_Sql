@@ -1,5 +1,6 @@
 from cmath import inf
 import os
+from tabnanny import check
 import sqlalchemy as sa
 import hikari
 import lightbulb
@@ -119,7 +120,7 @@ async def newdate(ctx):
     date = await dateFormat(ctx.options.day, ctx.options.month)
     engine = sa.create_engine(os.environ["DATABASE_URL"])
 
-    if await generalCheck(guildID):
+    if await generalCheck(guildID) and not await checkUser(userID):
         with engine.connect() as conn:
             statement1 = (
                 """
@@ -355,7 +356,7 @@ async def sremove(ctx):
     userID = ctx.author.id
     engine = sa.create_engine(os.environ["DATABASE_URL"])
 
-    if await generalCheck(guildID):
+    if await generalCheck(guildID) and await checkUser(userID):
         with engine.connect() as conn:
             statement1 = (
                 f"""
@@ -462,7 +463,7 @@ async def mremove(ctx):
     roleArr = ctx.member.role_ids
     engine = sa.create_engine(os.environ["DATABASE_URL"])
 
-    if await ModCheck(guildID, roleArr) and await generalCheck(guildID):
+    if await ModCheck(guildID, roleArr) and await generalCheck(guildID) and await checkUser(removeID):
             with engine.connect() as conn:
                 statement1 = (
                     f"""
@@ -579,17 +580,94 @@ async def ModCheck(guildID, modID):
         guildmod = results.first()[0]
 
         if guildmod in modID:
-            print('pass')
             return True
         
         print('fail modCheck')
         return False
     
 
+@bot.command
+@lightbulb.command('listall', 'list all saved birthdates for server')
+@lightbulb.implements(lightbulb.SlashCommand)
+async def listall(ctx):
+    guildID = ctx.guild_id
+    engine = sa.create_engine(os.environ["DATABASE_URL"])
+    bdays = ""
 
-async def listall():
-    pass
+    with engine.connect as conn:
+        statement1 = (
+            f"""
+            SELECT userId
+            FROM Guilds
+            WHERE guildId = {guildID}
+            """
+        )
+        results = conn.execute(sa.text(statement1))
+        userArr = results.first()[0]
 
+        for user in userArr:
+            statement2 = (
+                f"""
+                SELECT dates
+                FROM Users
+                WHERE userID = {user}
+                """
+            )
+            result = conn.execute(sa.text(statement2))
+            date = results.first()[0]
+            bdays += f"{date} \n"
+
+async def checkUser(userID):
+    engine = sa.create_engine(os.environ["DATABASE_URL"])
+
+    with engine.connect() as conn:
+        statement1 = (
+            f"""
+            SELECT userId
+            FROM Users
+            WHERE userId = {userID}
+            """
+        )
+        results = conn.execute(sa.text(statement1))
+        if results.first() == None:
+            print("fail checkUser")
+            return False
+
+        return True
+
+async def checkGuildUser(userID, GuildID):
+    engine = sa.create_engine(os.environ["DATABASE_URL"])
+
+    with engine.connect() as conn:
+        statement1 = (
+            f"""
+            SELECT userId 
+            FROM Guilds
+            WHERE guildId = {GuildID}
+            """
+        )
+
+        results = conn.execute(sa.text(statement1))
+        userArr = results.first()[0]
+
+        if userID in userArr:
+            return True
+
+        print("fail checkGuildUser")
+        return False
+
+@bot.command
+@lightbulb.command('addtoserver', 'saves your birthdate in this server')
+@lightbulb.implements(lightbulb.SlashCommand)
+async def addtoserver(ctx):
+    userID = ctx.author.id
+    guildID = ctx.guild_id
+
+    if not checkGuildUser(userID, guildID):
+        pass
+
+
+#test listall
+#finish addtoserver
 #next task: prevent duplicates
-# general checks for user (in remove commands)
 bot.run()
